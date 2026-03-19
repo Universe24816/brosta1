@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>必殺技つき対戦ブロスタ風</title>
+<style>
+body{margin:0;background:#0d0d0d;color:#fff;font-family:sans-serif;text-align:center}
+canvas{background:#1a1a1a;display:block;margin:10px auto;border:3px solid #555}
+#ui{width:600px;margin:0 auto;display:flex;justify-content:space-between}
+.bar{height:10px;background:#444;border-radius:5px;overflow:hidden}
+.fill{height:100%}
+</style>
+</head>
+<body>
+<h2>⚔️ 必殺技つき対戦</h2>
+<div id="ui">
+<div>あなた❤️<div class="bar"><div id="p1" class="fill" style="background:#0f0"></div></div>⚡<div class="bar"><div id="u1" class="fill" style="background:#0ff"></div></div></div>
+<div>敵❤️<div class="bar"><div id="p2" class="fill" style="background:#f00"></div></div>⚡<div class="bar"><div id="u2" class="fill" style="background:#0ff"></div></div></div>
+</div>
+<canvas id="game" width="600" height="400"></canvas>
+
+<script>
+const c=document.getElementById("game"),ctx=c.getContext("2d");
+let mouse={x:300,y:200};
+c.onmousemove=e=>{let r=c.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top};
+
+const keys={};
+document.onkeydown=e=>keys[e.key.toLowerCase()]=true;
+document.onkeyup=e=>keys[e.key.toLowerCase()]=false;
+
+let p1={x:100,y:200,size:15,hp:100,cd:0,ult:0};
+let p2={x:500,y:200,size:15,hp:100,cd:0,ult:0};
+let bullets=[];
+
+function shoot(shooter,target){
+ if(shooter.cd>0)return;
+ let dx=target.x-shooter.x,dy=target.y-shooter.y,d=Math.hypot(dx,dy);
+ bullets.push({x:shooter.x,y:shooter.y,dx:dx/d*5,dy:dy/d*5,owner:shooter});
+ shooter.cd=15;
+}
+
+function useUlt(user,target){
+ if(user.ult<100)return;
+ // 扇状弾（必殺技）
+ for(let i=-2;i<=2;i++){
+  let dx=target.x-user.x,dy=target.y-user.y;
+  let angle=Math.atan2(dy,dx)+i*0.2;
+  bullets.push({x:user.x,y:user.y,dx:Math.cos(angle)*6,dy:Math.sin(angle)*6,owner:user,ult:true});
+ }
+ user.ult=0;
+}
+
+function update(){
+ // プレイヤー
+ if(keys["w"])p1.y-=3;
+ if(keys["s"])p1.y+=3;
+ if(keys["a"])p1.x-=3;
+ if(keys["d"])p1.x+=3;
+ if(keys[" "])shoot(p1,mouse);
+ if(keys["shift"])useUlt(p1,mouse);
+
+ // 敵AI
+ let dx=p1.x-p2.x,dy=p1.y-p2.y,d=Math.hypot(dx,dy);
+ p2.x+=dx/d*1.5;
+ p2.y+=dy/d*1.5;
+ if(Math.random()<0.03)shoot(p2,p1);
+ if(p2.ult>=100 && Math.random()<0.02)useUlt(p2,p1);
+
+ if(p1.cd>0)p1.cd--;
+ if(p2.cd>0)p2.cd--;
+
+ bullets.forEach((b,bi)=>{
+  b.x+=b.dx;b.y+=b.dy;
+  let target=(b.owner===p1)?p2:p1;
+  if(Math.hypot(b.x-target.x,b.y-target.y)<target.size){
+    target.hp -= b.ult?15:5;
+    b.owner.ult += 10;
+    bullets.splice(bi,1);
+  }
+ });
+
+ document.getElementById("p1").style.width=p1.hp+"%";
+ document.getElementById("p2").style.width=p2.hp+"%";
+ document.getElementById("u1").style.width=p1.ult+"%";
+ document.getElementById("u2").style.width=p2.ult+"%";
+
+ if(p1.hp<=0){alert("負け…");location.reload();}
+ if(p2.hp<=0){alert("勝ち！");location.reload();}
+}
+
+function draw(){
+ ctx.clearRect(0,0,600,400);
+
+ ctx.fillStyle="#0af";
+ ctx.beginPath();ctx.arc(p1.x,p1.y,p1.size,0,6.28);ctx.fill();
+
+ ctx.fillStyle="#f33";
+ ctx.beginPath();ctx.arc(p2.x,p2.y,p2.size,0,6.28);ctx.fill();
+
+ ctx.fillStyle="#ff0";
+ bullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,b.ult?6:4,0,6.28);ctx.fill()});
+
+ ctx.strokeStyle="#fff";
+ ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(mouse.x,mouse.y);ctx.stroke();
+}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+loop();
+</script>
+</body>
+</html>
